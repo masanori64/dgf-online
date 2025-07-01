@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>大富豪オンライン - 入室</title>
+</head>
+
+<body>
+    <h1>大富豪オンライン</h1>
+    <form id="entryForm">
+        <input type="text" id="roomId" placeholder="合言葉 (room)" required />
+        <input type="text" id="playerName" placeholder="名前" required />
+        <input type="number" id="maxPlayers" min="2" max="5" placeholder="定員 (2~5)" required />
+        <button type="submit">入室</button>
+    </form>
+    <script>
+        document.getElementById('entryForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const room = document.getElementById('roomId').value;
+            const name = document.getElementById('playerName').value;
+            const max = document.getElementById('maxPlayers').value;
+            window.location.href = `game.html?room=${room}&name=${name}&max=${max}`;
+        });
+    </script>
+</body>
+
+</html>

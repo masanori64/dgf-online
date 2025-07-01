@@ -1,0 +1,13 @@
+body {
+    font-family: sans-serif;
+    padding: 20px;
+}
+
+#handArea {
+    margin: 20px 0;
+}
+
+button {
+    padding: 10px;
+    margin-right: 10px;
+}
