@@ -1,13 +1,80 @@
 body {
     font-family: sans-serif;
-    padding: 20px;
+    margin: 20px;
 }
 
-#handArea {
-    margin: 20px 0;
+h1 {
+    margin-bottom: 10px;
 }
 
-button {
+.form-container {
+    margin-top: 20px;
+}
+
+.players-list {
+    margin: 10px 0;
     padding: 10px;
+    border: 1px solid #333;
+    max-width: 300px;
+}
+
+.players-list .current-turn {
+    background-color: #ffef99;
+}
+
+.field {
+    font-weight: bold;
+    margin: 10px 0;
+}
+
+.status-msg {
+    margin: 5px 0;
+    font-weight: bold;
+}
+
+.last-action {
+    margin: 5px 0;
+    font-style: italic;
+}
+
+#handSection {
+    margin: 15px 0;
+}
+
+.hand-cards {
+    margin: 5px 0;
+}
+
+.hand-cards .card {
+    margin: 2px;
+    padding: 5px 8px;
+    cursor: pointer;
+}
+
+.hand-cards .card.selected {
+    background-color: #aed;
+}
+
+.controls {
+    margin: 5px 0;
+}
+
+.controls button {
     margin-right: 10px;
+}
+
+.start-btn,
+.reset-btn {
+    display: none;
+    /* 必要な時に表示 */
+    margin-top: 15px;
+    padding: 5px 10px;
+}
+
+.result {
+    margin-top: 15px;
+    padding: 10px;
+    border: 1px solid #555;
+    max-width: 300px;
+    background-color: #f9f9f9;
 }

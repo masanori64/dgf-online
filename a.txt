@@ -1,0 +1,1514 @@
+仕様書
+大富豪ゲームにおけるフロントエンドとバックエンドの役割
+
+
+
+
+
+1. バックエンド（サーバー）
+
+
+
+役割: ゲームの「脳」であり「管理者」。ゲームの進行を司り、ルールを適用し、すべてのプレイヤーの状態を一元的に管理します。クライアントからのリクエストを受け取り、ゲームロジックに基づいて処理を行い、結果をクライアントに通知します。
+
+主な仕事:
+
+プレイヤーの接続・管理: 複数のクライアントからの接続を受け付け、それぞれのプレイヤーを識別・管理します。
+
+ゲームの状態管理:
+
+誰がどの手札を持っているか。
+
+現在、場にどんなカードが出ているか。
+
+現在の手番は誰か。
+
+ゲームのフェーズ（待機中、ゲーム中、終了など）。
+
+パスの回数、革命の状態、縛りの状態など、ルールに必要なすべての情報。
+
+ゲームロジックの実装:
+
+カードのシャッフル、配布。
+
+プレイヤーからの「カードを出す」「パスする」といったアクションの検証（正しいカードか、ルールに則っているか）。
+
+手番の進行管理。
+
+場のカードの更新、流れる処理。
+
+勝敗判定、順位決定。
+
+各種ローカルルールの適用（8切り、革命、都落ちなど）。
+
+クライアントへの情報通知: ゲームの状態変化（手番変更、カードが出された、手札更新、ゲーム終了など）を適切なクライアントに送信します。
+
+労力（骨組み段階）:
+
+高い。ゲームの核となるロジックと、複数クライアントとの通信処理が集中するため、一番複雑で重要です。デバッグもサーバー側が主になります。まずはシンプルなルールで実装し、徐々に複雑なルールを追加していく形になるでしょう。CUIでもGUIでも、この部分は必須です。
+
+
+
+2. フロントエンド（クライアント）
+
+
+
+役割: プレイヤーがゲームを操作し、現在のゲームの状態を確認するための「窓口」。サーバーから送られてくる情報を元に、画面表示を更新し、プレイヤーの操作をサーバーに伝えます。
+
+主な仕事:
+
+サーバーへの接続・切断: ゲーム開始時にサーバーに接続し、終了時に切断します。
+
+サーバーからの情報受信・表示:
+
+自分の手札を表示。
+
+場に出ているカードを表示。
+
+現在の手番プレイヤーを表示。
+
+他のプレイヤーの行動（「〇〇がカードを出した」「△△がパスした」など）をメッセージで表示。
+
+ゲームの終了や勝敗を通知。
+
+プレイヤーからの入力受付・サーバーへの送信:
+
+自分の手札からカードを選択して出す機能。
+
+パスする機能。
+
+（オプション）チャット入力機能。
+
+これらの入力をサーバーに指定された形式（JSONなど）で送信します。
+
+労力（骨組み段階）:
+
+中程度。CUI（コマンドライン）で実装する限りは、入力と出力のテキスト処理なので比較的シンプルです。ただし、サーバーから送られてくる様々な種類の情報を正しく解釈し、適切に表示・操作に反映させるロジックは必要になります。GUIを実装する場合は、労力は大幅に上がります。
+
+
+
+
+
+シンプルな枠組みと労力の配分（骨組みフェーズ）
+
+
+
+枠組み
+
+仕事内容（シンプル版）
+
+労力の目安（骨組みフェーズ）
+
+バックエンド
+
+- クライアントからの接続受付、管理
+
+
+
+- カードの生成、シャッフル、配布
+
+
+
+- 手番の管理、場のカードの状態管理
+
+
+
+- 最低限のルール判定（出せる枚数、強弱のみ）
+
+
+
+- クライアントへの状態通知（JSON形式）
+
+約 60-70%
+
+フロントエンド
+
+- サーバーへの接続、データ送受信
+
+
+
+- CUIでの手札、場のカード、メッセージ表示
+
+
+
+- CUIでのカード選択、パス入力、サーバーへの送信
+
+約 30-40%
+
+ポイント:
+
+バックエンドが肝: 骨組み段階では、バックエンドでゲームの核心となるロジックと、複数のプレイヤーが同時に参加できる通信基盤を構築することに最も労力がかかります。
+
+フロントエンドはCUIで簡略化: 最初はフロントエンドの見た目や操作性をCUIに限定することで、開発の手間を大幅に削減し、バックエンドの核となる部分に集中できます。
+
+分業の場合: もしチームで開発するなら、バックエンド担当とフロントエンド担当に分けることで効率が上がりますが、最初はどちらかが両方をある程度理解しているとスムーズです。
+
+このシンプルな枠組みでまず動くものを作り、その後、ルールを追加したり、CUIからGUIへ移行したりする際に、フロントエンドの労力が増えていくイメージです。
+
+
+
+🟡 今後追加すべき残り機能（設計書／クラス図の観点から）
+機能	内容	状態	備考
+🔁 ゲームリセット機能	勝者決定後、2ゲーム目を開始できる仕組み	未実装	GameRoom を再利用できるようにする必要あり
+🧠 NPCの簡易ロジック	NPCが自動でカードを出す or パスする	未実装	現在NPCは何も行動しない
+♻️ 再接続処理	接続が切れたプレイヤーが復帰できる	未実装	WebSocket切断後の処理拡張が必要
+📝 観戦モード	観戦のみのプレイヤー（isSpectator）	任意	UMLにあればだが今は優先度低
+🧩 ローカルルールの導入	8切り・革命など大富豪ルール	任意	ステップアップ項目（今はシンプル仕様）
+🧑‍🤝‍🧑 UIの改善	プレイヤーのターン表示・残り手札枚数など	一部済	改善余地あり（より視覚的に）
+🧪 テスト導入	単体テスト・シナリオテスト	未着手	本格開発では必要になる工程
+
+
+🔁 ゲーム再スタート機能
+　→ ゲーム終了後に新しいゲームを同じルームで始められるようにする。
+　→ resetGame() などを GameRoom に追加、client側に「再スタート」ボタン実装。
+
+前回gptのメモ以下(これは間違っている部分もある可能性があることに留意してください)
+✅ 構築環境（ローカル開発環境）
+項目	内容
+OS	Windows（Code Page: 65001 / UTF-8）
+実行環境	Node.js (server.js によるWebSocketサーバー)
+使用パッケージ	express, ws
+ディレクトリ構成	C:\dgf-online\ 配下に以下が存在：
+├─ server/ → server.js, GameRoom.js
+└─ public/ → client.js, index.html など
+起動方法	node server/server.js にてローカルサーバー起動
+ポート	http://localhost:3000 で接続確認済み
+クライアント通信	WebSocket（ws://localhost:3000）でリアルタイム通信
+実行ログ	サーバー起動 http://localhost:3000 確認済み
+ブラウザ動作	クライアント画面表示・ゲーム開始可能（通信は動作）
+
+📌 現状の進捗と課題
+ステータス	内容
+✅ ゲームルーム作成	主催者が部屋を作成し、最大人数設定可能
+✅ プレイヤー参加	他ユーザーが参加。人数不足時は NPC 自動補充
+✅ ゲーム開始処理	「スタートボタン」押下で全プレイヤーに手札配布
+✅ 手札表示	クライアント側にカードがボタン形式で表示される
+✅ 勝利判定	プレイヤーの手札が空になったら勝利と判定し、game-ended を送信
+⚠️ 未確認または不安定	以下の挙動がまだ検証・調整中：
+・ターン終了後、次のプレイヤーの your-turn が正しく届かない場合がある
+・他プレイヤーにカード出しが反映されないことがある
+・NPCの自動ターン処理は未実装（現状では待ちのまま）
+
+🎯 次に実装・確認すべき項目（目安）
+ 出したカードが他プレイヤーの画面にも正しく反映されるか確認
+
+ ターンが循環するように your-turn 通知が連携しているかテスト
+
+ NPCの自動カード出し（AIロジック or ランダム）実装（必要に応じて）
+
+ UIリセット／2ゲーム目以降の処理確認
+
+🧭 引き継ぎのための一言メモ（テンプレ）
+このプロジェクトは Node.js + WebSocket を用いた「大富豪オンラインゲーム」です。
+現時点でゲームスタート〜勝利判定までは一通り通っており、残る課題はターン同期と他クライアントへのリアルタイム反映です。
+NPCのロジックや再試合機能は後回しで、まずは1ゲームがスムーズに進行することを優先しています。
+
+
+
+修正してほしい点
+ルームに入った時点で枚数はunderfinedと表示されるのですが、開始されるまでは空白で何も表示しない設定に変更してください
+それと一つ前まではゲームがプレーできていたのですが、今回はカードを出したとたんにすべてのカードが選択できなくなり、ゲームが進めなくなりました。cpuが選択をせずにスタックしているのでは？
+一つ前ではgameroom.jsはコード数がけっこうあったのですがあなたが消してしまったせいでは？コードを貼った方がいいですか？コードを毎回メモリに保存してもらうことはできませんか？毎回こちらがupするのは大変です
+
+以下コード
+public/client.js
+
+
+let socket = null;
+
+const joinForm = document.getElementById('join-form');
+const joinSection = document.getElementById('join-section');
+const gameSection = document.getElementById('game-section');
+const handDiv = document.getElementById('hand');
+const playerNameDisplay = document.getElementById('player-name');
+const playerListDiv = document.getElementById('player-list');
+const startBtn = document.getElementById('start-btn');
+const fieldDiv = document.getElementById('field');
+const showHandsCheckbox = document.getElementById('show-hands-checkbox');
+
+const overlayLayer = document.getElementById('overlay-layer');
+const overlayMsg = document.getElementById('overlay-msg');
+const overlayEnterBtn = document.getElementById('overlay-enter-btn');
+const overlayDeleteBtn = document.getElementById('overlay-delete-btn');
+
+let currentRoomId = null;
+let myName = "";
+let myHand = [];
+let currentTurnPlayerId = null;
+
+let latestPlayerListData = null;
+let joinMode = "create";
+let gameStarted = false;
+
+// localStorageに前回情報があれば復元
+window.addEventListener('DOMContentLoaded', () => {
+    const prevName = localStorage.getItem('dgf-playerName');
+    const prevRoom = localStorage.getItem('dgf-roomId');
+    if (prevName) document.getElementById('name').value = prevName;
+    if (prevRoom) document.getElementById('room-id').value = prevRoom;
+
+    if (prevName && prevRoom) {
+        showOverlay(`前回のルーム情報が見つかりました<br>
+            <b>名前：</b>${prevName}<br>
+            <b>ルームID：</b>${prevRoom}<br>
+            このルームで復帰/削除しますか？`);
+    }
+});
+
+function showOverlay(message) {
+    overlayMsg.innerHTML = message;
+    overlayLayer.style.display = 'flex';
+    document.body.classList.add('layer-active');
+}
+function hideOverlay() {
+    overlayLayer.style.display = 'none';
+    document.body.classList.remove('layer-active');
+}
+
+// 入る（復帰）ボタン
+overlayEnterBtn.onclick = () => {
+    hideOverlay();
+    document.getElementById('name').value = localStorage.getItem('dgf-playerName') || '';
+    document.getElementById('room-id').value = localStorage.getItem('dgf-roomId') || '';
+    joinForm.requestSubmit();
+};
+// 削除ボタン
+overlayDeleteBtn.onclick = () => {
+    hideOverlay();
+    const roomId = localStorage.getItem('dgf-roomId');
+    const name = localStorage.getItem('dgf-playerName');
+    openSocket();
+    socket.addEventListener('open', function onOpen() {
+        socket.send(JSON.stringify({
+            type: "delete-room",
+            payload: {
+                roomId,
+                playerName: name
+            }
+        }));
+        socket.close();
+        localStorage.removeItem('dgf-playerName');
+        localStorage.removeItem('dgf-roomId');
+        alert("ルームを削除しました");
+    }, { once: true });
+};
+
+function openSocket() {
+    if (socket && socket.readyState === 1) socket.close();
+    socket = new WebSocket(`ws://${location.host}`);
+    setupSocketEvents();
+}
+openSocket();
+
+joinForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = document.getElementById('name').value;
+    const roomId = document.getElementById('room-id').value;
+    const maxPlayers = parseInt(document.getElementById('max-players').value, 10);
+
+    currentRoomId = roomId;
+    myName = name;
+
+    localStorage.setItem('dgf-playerName', name);
+    localStorage.setItem('dgf-roomId', roomId);
+
+    joinMode = "create";
+    socket.send(JSON.stringify({
+        type: 'create-room',
+        payload: {
+            roomId,
+            playerName: name,
+            maxPlayers
+        }
+    }));
+
+    joinSection.style.display = 'none';
+    gameSection.style.display = 'block';
+    playerNameDisplay.textContent = `${name} さんの手札`;
+});
+
+function setupSocketEvents() {
+    socket.addEventListener('message', (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.type === 'error' && data.message.includes('既に存在')) {
+            if (joinMode === "create") {
+                joinMode = "join";
+                socket.send(JSON.stringify({
+                    type: 'join-room',
+                    payload: {
+                        roomId: currentRoomId,
+                        playerName: myName
+                    }
+                }));
+                return;
+            }
+        }
+
+        if (data.type === 'hand') {
+            myHand = data.cards;
+            renderHand(myHand);
+        }
+
+        if (data.type === 'error') {
+            alert(data.message);
+        }
+
+        if (data.type === 'game-started') {
+            gameStarted = true;
+            startBtn.style.display = "none";
+            renderPlayerList(data.players, true, currentTurnPlayerId, showHandsCheckbox && showHandsCheckbox.checked, data);
+        }
+
+        if (data.type === 'field-card') {
+            updateField(data.card);
+        }
+
+        if (data.type === 'your-turn') {
+            if (data.isYourTurn) {
+                enableHandButtons();
+            } else {
+                disableHandButtons();
+            }
+        }
+
+        if (data.type === 'player-list') {
+            currentTurnPlayerId = data.currentPlayerId;
+            latestPlayerListData = data;
+            if (gameStarted) startBtn.style.display = "none";
+            renderPlayerList(
+                data.players,
+                false,
+                data.currentPlayerId,
+                showHandsCheckbox && showHandsCheckbox.checked,
+                data
+            );
+        }
+
+        if (data.type === 'game-ended') {
+            alert(`🎉 ${data.winner} さんが勝利しました！`);
+            disableAllButtons();
+            localStorage.removeItem('dgf-playerName');
+            localStorage.removeItem('dgf-roomId');
+            gameStarted = false;
+            startBtn.style.display = "";
+        }
+    });
+}
+
+if (showHandsCheckbox) {
+    showHandsCheckbox.addEventListener('change', () => {
+        if (latestPlayerListData) {
+            renderPlayerList(
+                latestPlayerListData.players,
+                false,
+                latestPlayerListData.currentPlayerId,
+                showHandsCheckbox.checked,
+                latestPlayerListData
+            );
+        }
+    });
+}
+
+function renderHand(cards) {
+    handDiv.innerHTML = '';
+    cards.forEach((card) => {
+        const btn = document.createElement('button');
+        btn.textContent = card;
+        btn.classList.add('card-btn');
+        btn.disabled = true;
+
+        btn.addEventListener('click', () => {
+            socket.send(JSON.stringify({
+                type: 'play-card',
+                payload: {
+                    roomId: currentRoomId,
+                    card
+                }
+            }));
+            btn.disabled = true;
+        });
+        handDiv.appendChild(btn);
+    });
+
+    const passBtn = document.createElement('button');
+    passBtn.id = 'pass-button';
+    passBtn.textContent = 'PASS';
+    passBtn.disabled = true;
+    passBtn.addEventListener('click', () => {
+        const confirmed = confirm("本当にパスしますか？");
+        if (confirmed) {
+            socket.send(JSON.stringify({
+                type: 'pass',
+                payload: {
+                    roomId: currentRoomId
+                }
+            }));
+            passBtn.disabled = true;
+        }
+    });
+    handDiv.appendChild(passBtn);
+}
+
+// showAllHands: trueなら各プレイヤーの手札内容も併記
+function renderPlayerList(players, isGameStart, turnPlayerId, showAllHands = false, playerListData = null) {
+    if (!playerListDiv) return;
+    playerListDiv.innerHTML = '<h3>参加プレイヤー</h3>';
+    const ul = document.createElement('ul');
+    let handsMap = {};
+    if (showAllHands && playerListData && playerListData.players) {
+        playerListData.players.forEach(p => {
+            if (p.hand) handsMap[p.id] = p.hand;
+        });
+    }
+    players.forEach(p => {
+        let text = "";
+        if ((typeof p.cardsLeft === "number") && !isGameStart) {
+            text =
+                p.isNPC ? `${p.name} (NPC) 残${p.cardsLeft}枚` :
+                (p.finished ? `${p.name}（上がり）` : `${p.name} 残${p.cardsLeft}枚`);
+        } else if (isGameStart) {
+            text =
+                p.isNPC ? `${p.name} (NPC) 残${p.cardsLeft ?? ''}枚` :
+                (p.finished ? `${p.name}（上がり）` : `${p.name} 残${p.cardsLeft ?? ''}枚`);
+        } else {
+            text = p.isNPC ? `${p.name} (NPC)` : `${p.name}`;
+        }
+        if (showAllHands && handsMap && handsMap[p.id] && handsMap[p.id].length > 0) {
+            text += ` [${handsMap[p.id].join(', ')}]`;
+        }
+        const li = document.createElement('li');
+        if (turnPlayerId && p.id === turnPlayerId) {
+            li.textContent = `▷${text}`;
+        } else {
+            li.textContent = text;
+        }
+        if (myName && p.name === myName) li.style.fontWeight = "bold";
+        ul.appendChild(li);
+    });
+    playerListDiv.appendChild(ul);
+}
+
+startBtn.addEventListener('click', () => {
+    socket.send(JSON.stringify({
+        type: 'start-game',
+        payload: {
+            roomId: currentRoomId
+        }
+    }));
+    startBtn.disabled = true;
+});
+
+function updateField(card) {
+    if (fieldDiv) {
+        fieldDiv.innerHTML = `<h3>場のカード: ${card}</h3>`;
+    }
+}
+
+function enableHandButtons() {
+    document.querySelectorAll('.card-btn').forEach(btn => btn.disabled = false);
+    const passBtn = document.getElementById('pass-button');
+    if (passBtn) passBtn.disabled = false;
+}
+
+function disableHandButtons() {
+    document.querySelectorAll('.card-btn').forEach(btn => btn.disabled = true);
+    const passBtn = document.getElementById('pass-button');
+    if (passBtn) passBtn.disabled = true;
+}
+
+function disableAllButtons() {
+    document.querySelectorAll('button').forEach(btn => {
+        btn.disabled = true;
+    });
+}
+
+
+
+
+public/game.html
+
+
+
+
+
+let socket = null;
+
+const joinForm = document.getElementById('join-form');
+const joinSection = document.getElementById('join-section');
+const gameSection = document.getElementById('game-section');
+const handDiv = document.getElementById('hand');
+const playerNameDisplay = document.getElementById('player-name');
+const playerListDiv = document.getElementById('player-list');
+const startBtn = document.getElementById('start-btn');
+const fieldDiv = document.getElementById('field');
+const showHandsCheckbox = document.getElementById('show-hands-checkbox');
+
+const overlayLayer = document.getElementById('overlay-layer');
+const overlayMsg = document.getElementById('overlay-msg');
+const overlayEnterBtn = document.getElementById('overlay-enter-btn');
+const overlayDeleteBtn = document.getElementById('overlay-delete-btn');
+
+let currentRoomId = null;
+let myName = "";
+let myHand = [];
+let currentTurnPlayerId = null;
+
+let latestPlayerListData = null;
+let joinMode = "create";
+let gameStarted = false;
+
+// localStorageに前回情報があれば復元
+window.addEventListener('DOMContentLoaded', () => {
+    const prevName = localStorage.getItem('dgf-playerName');
+    const prevRoom = localStorage.getItem('dgf-roomId');
+    if (prevName) document.getElementById('name').value = prevName;
+    if (prevRoom) document.getElementById('room-id').value = prevRoom;
+
+    if (prevName && prevRoom) {
+        showOverlay(`前回のルーム情報が見つかりました<br>
+            <b>名前：</b>${prevName}<br>
+            <b>ルームID：</b>${prevRoom}<br>
+            このルームで復帰/削除しますか？`);
+    }
+});
+
+function showOverlay(message) {
+    overlayMsg.innerHTML = message;
+    overlayLayer.style.display = 'flex';
+    document.body.classList.add('layer-active');
+}
+function hideOverlay() {
+    overlayLayer.style.display = 'none';
+    document.body.classList.remove('layer-active');
+}
+
+// 入る（復帰）ボタン
+overlayEnterBtn.onclick = () => {
+    hideOverlay();
+    document.getElementById('name').value = localStorage.getItem('dgf-playerName') || '';
+    document.getElementById('room-id').value = localStorage.getItem('dgf-roomId') || '';
+    joinForm.requestSubmit();
+};
+// 削除ボタン
+overlayDeleteBtn.onclick = () => {
+    hideOverlay();
+    const roomId = localStorage.getItem('dgf-roomId');
+    const name = localStorage.getItem('dgf-playerName');
+    openSocket();
+    socket.addEventListener('open', function onOpen() {
+        socket.send(JSON.stringify({
+            type: "delete-room",
+            payload: {
+                roomId,
+                playerName: name
+            }
+        }));
+        socket.close();
+        localStorage.removeItem('dgf-playerName');
+        localStorage.removeItem('dgf-roomId');
+        alert("ルームを削除しました");
+    }, { once: true });
+};
+
+function openSocket() {
+    if (socket && socket.readyState === 1) socket.close();
+    socket = new WebSocket(`ws://${location.host}`);
+    setupSocketEvents();
+}
+openSocket();
+
+joinForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = document.getElementById('name').value;
+    const roomId = document.getElementById('room-id').value;
+    const maxPlayers = parseInt(document.getElementById('max-players').value, 10);
+
+    currentRoomId = roomId;
+    myName = name;
+
+    localStorage.setItem('dgf-playerName', name);
+    localStorage.setItem('dgf-roomId', roomId);
+
+    joinMode = "create";
+    socket.send(JSON.stringify({
+        type: 'create-room',
+        payload: {
+            roomId,
+            playerName: name,
+            maxPlayers
+        }
+    }));
+
+    joinSection.style.display = 'none';
+    gameSection.style.display = 'block';
+    playerNameDisplay.textContent = `${name} さんの手札`;
+});
+
+function setupSocketEvents() {
+    socket.addEventListener('message', (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.type === 'error' && data.message.includes('既に存在')) {
+            if (joinMode === "create") {
+                joinMode = "join";
+                socket.send(JSON.stringify({
+                    type: 'join-room',
+                    payload: {
+                        roomId: currentRoomId,
+                        playerName: myName
+                    }
+                }));
+                return;
+            }
+        }
+
+        if (data.type === 'hand') {
+            myHand = data.cards;
+            renderHand(myHand);
+        }
+
+        if (data.type === 'error') {
+            alert(data.message);
+        }
+
+        if (data.type === 'game-started') {
+            gameStarted = true;
+            startBtn.style.display = "none";
+            renderPlayerList(data.players, true, currentTurnPlayerId, showHandsCheckbox && showHandsCheckbox.checked, data);
+        }
+
+        if (data.type === 'field-card') {
+            updateField(data.card);
+        }
+
+        if (data.type === 'your-turn') {
+            if (data.isYourTurn) {
+                enableHandButtons();
+            } else {
+                disableHandButtons();
+            }
+        }
+
+        if (data.type === 'player-list') {
+            currentTurnPlayerId = data.currentPlayerId;
+            latestPlayerListData = data;
+            if (gameStarted) startBtn.style.display = "none";
+            renderPlayerList(
+                data.players,
+                false,
+                data.currentPlayerId,
+                showHandsCheckbox && showHandsCheckbox.checked,
+                data
+            );
+        }
+
+        if (data.type === 'game-ended') {
+            alert(`🎉 ${data.winner} さんが勝利しました！`);
+            disableAllButtons();
+            localStorage.removeItem('dgf-playerName');
+            localStorage.removeItem('dgf-roomId');
+            gameStarted = false;
+            startBtn.style.display = "";
+        }
+    });
+}
+
+if (showHandsCheckbox) {
+    showHandsCheckbox.addEventListener('change', () => {
+        if (latestPlayerListData) {
+            renderPlayerList(
+                latestPlayerListData.players,
+                false,
+                latestPlayerListData.currentPlayerId,
+                showHandsCheckbox.checked,
+                latestPlayerListData
+            );
+        }
+    });
+}
+
+function renderHand(cards) {
+    handDiv.innerHTML = '';
+    cards.forEach((card) => {
+        const btn = document.createElement('button');
+        btn.textContent = card;
+        btn.classList.add('card-btn');
+        btn.disabled = true;
+
+        btn.addEventListener('click', () => {
+            socket.send(JSON.stringify({
+                type: 'play-card',
+                payload: {
+                    roomId: currentRoomId,
+                    card
+                }
+            }));
+            btn.disabled = true;
+        });
+        handDiv.appendChild(btn);
+    });
+
+    const passBtn = document.createElement('button');
+    passBtn.id = 'pass-button';
+    passBtn.textContent = 'PASS';
+    passBtn.disabled = true;
+    passBtn.addEventListener('click', () => {
+        const confirmed = confirm("本当にパスしますか？");
+        if (confirmed) {
+            socket.send(JSON.stringify({
+                type: 'pass',
+                payload: {
+                    roomId: currentRoomId
+                }
+            }));
+            passBtn.disabled = true;
+        }
+    });
+    handDiv.appendChild(passBtn);
+}
+
+// showAllHands: trueなら各プレイヤーの手札内容も併記
+function renderPlayerList(players, isGameStart, turnPlayerId, showAllHands = false, playerListData = null) {
+    if (!playerListDiv) return;
+    playerListDiv.innerHTML = '<h3>参加プレイヤー</h3>';
+    const ul = document.createElement('ul');
+    let handsMap = {};
+    if (showAllHands && playerListData && playerListData.players) {
+        playerListData.players.forEach(p => {
+            if (p.hand) handsMap[p.id] = p.hand;
+        });
+    }
+    players.forEach(p => {
+        let text = "";
+        if ((typeof p.cardsLeft === "number") && !isGameStart) {
+            text =
+                p.isNPC ? `${p.name} (NPC) 残${p.cardsLeft}枚` :
+                (p.finished ? `${p.name}（上がり）` : `${p.name} 残${p.cardsLeft}枚`);
+        } else if (isGameStart) {
+            text =
+                p.isNPC ? `${p.name} (NPC) 残${p.cardsLeft ?? ''}枚` :
+                (p.finished ? `${p.name}（上がり）` : `${p.name} 残${p.cardsLeft ?? ''}枚`);
+        } else {
+            text = p.isNPC ? `${p.name} (NPC)` : `${p.name}`;
+        }
+        if (showAllHands && handsMap && handsMap[p.id] && handsMap[p.id].length > 0) {
+            text += ` [${handsMap[p.id].join(', ')}]`;
+        }
+        const li = document.createElement('li');
+        if (turnPlayerId && p.id === turnPlayerId) {
+            li.textContent = `▷${text}`;
+        } else {
+            li.textContent = text;
+        }
+        if (myName && p.name === myName) li.style.fontWeight = "bold";
+        ul.appendChild(li);
+    });
+    playerListDiv.appendChild(ul);
+}
+
+startBtn.addEventListener('click', () => {
+    socket.send(JSON.stringify({
+        type: 'start-game',
+        payload: {
+            roomId: currentRoomId
+        }
+    }));
+    startBtn.disabled = true;
+});
+
+function updateField(card) {
+    if (fieldDiv) {
+        fieldDiv.innerHTML = `<h3>場のカード: ${card}</h3>`;
+    }
+}
+
+function enableHandButtons() {
+    document.querySelectorAll('.card-btn').forEach(btn => btn.disabled = false);
+    const passBtn = document.getElementById('pass-button');
+    if (passBtn) passBtn.disabled = false;
+}
+
+function disableHandButtons() {
+    document.querySelectorAll('.card-btn').forEach(btn => btn.disabled = true);
+    const passBtn = document.getElementById('pass-button');
+    if (passBtn) passBtn.disabled = true;
+}
+
+function disableAllButtons() {
+    document.querySelectorAll('button').forEach(btn => {
+        btn.disabled = true;
+    });
+}
+
+
+
+
+public/index.html
+
+
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>大富豪 Online</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        #overlay-layer {
+            display: none;
+            position: fixed;
+            z-index: 9999;
+            left: 0; top: 0; width: 100vw; height: 100vh;
+            background: rgba(255,255,255,0.8);
+            align-items: center;
+            justify-content: center;
+        }
+        #overlay-layer .overlay-content {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 4px 32px rgba(0,0,0,0.15);
+            padding: 40px 30px;
+            min-width: 300px;
+            text-align: center;
+        }
+        #overlay-layer button {
+            margin: 8px 16px 0 16px;
+            font-size: 1.1em;
+        }
+        body.layer-active #join-section,
+        body.layer-active #game-section {
+            pointer-events: none;
+            user-select: none;
+            filter: blur(2px) grayscale(20%);
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+    <h1>大富豪 Online</h1>
+    <label style="display:block;text-align:left;margin-bottom:8px;">
+      <input type="checkbox" id="show-hands-checkbox">
+      全員の手札を表示（開発用デバッグ）
+    </label>
+    <section id="join-section">
+        <form id="join-form">
+            <label>名前: <input type="text" id="name" required></label><br>
+            <label>ルームID: <input type="text" id="room-id" required></label><br>
+            <label>最大人数 (2〜5): <input type="number" id="max-players" min="2" max="5" required></label><br>
+            <button type="submit">入室</button>
+        </form>
+    </section>
+    <section id="game-section" style="display: none;">
+        <h2 id="player-name">あなたの手札</h2>
+        <div id="hand"></div>
+        <button id="pass-btn" style="display:none;">パス</button>
+        <button id="start-btn">ゲーム開始</button>
+        <div id="player-list"></div>
+        <div id="field"></div>
+    </section>
+    <!-- 復帰・削除オーバーレイ -->
+    <div id="overlay-layer">
+        <div class="overlay-content">
+            <div id="overlay-msg"></div>
+            <div id="overlay-buttons">
+                <button id="overlay-enter-btn">入る</button>
+                <button id="overlay-delete-btn">削除</button>
+            </div>
+        </div>
+    </div>
+    <script src="client.js"></script>
+</body>
+</html>
+
+
+
+
+
+
+style.css
+
+
+
+
+body {
+    font-family: "Arial", sans-serif;
+    background-color: #f5f5f5;
+    margin: 0;
+    padding: 20px;
+    text-align: center;
+}
+
+h1 {
+    color: #333;
+}
+
+form {
+    margin: 20px auto;
+    max-width: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+input,
+button {
+    padding: 10px;
+    font-size: 16px;
+}
+
+#game-section {
+    margin-top: 30px;
+}
+
+#hand {
+    margin-top: 15px;
+    font-size: 18px;
+    color: #222;
+}
+.card-btn {
+    margin: 2px;
+    font-size: 20px;
+}
+#player-list ul {
+    list-style: none;
+    padding-left: 0;
+}
+#field {
+    margin-top: 20px;
+    font-size: 18px;
+}
+
+
+
+
+
+server/GameRoom.js
+
+
+
+
+class GameRoom {
+    constructor(roomId, maxPlayers, onDeleteRoom) {
+        this.roomId = roomId;
+        this.maxPlayers = maxPlayers;
+        this.players = [];
+        this.npcCount = 0;
+        this.started = false;
+        this.lastPlayedCard = null;
+        this.lastPlayerId = null;
+        this.currentTurnIndex = 0;
+        this.finishedPlayerIds = new Set();
+        this.passedPlayerIds = new Set();
+        this.onDeleteRoom = onDeleteRoom;
+    }
+
+    addPlayer(player) {
+        if (this.players.length < this.maxPlayers) {
+            this.players.push(player);
+            return true;
+        }
+        return false;
+    }
+
+    fillWithNPCs() {
+        while (this.players.length < this.maxPlayers) {
+            const npc = {
+                id: `npc${this.npcCount++}`,
+                name: `NPC${this.npcCount}`,
+                isNPC: true,
+                hand: [],
+            };
+            this.players.push(npc);
+        }
+    }
+
+    replaceNPCWithHuman(humanPlayer) {
+        const npcIndex = this.players.findIndex(p => p.isNPC);
+        if (npcIndex !== -1) {
+            humanPlayer.hand = this.players[npcIndex].hand;
+            this.players[npcIndex] = humanPlayer;
+            return true;
+        }
+        return false;
+    }
+
+    startGame() {
+        this.started = true;
+        this.finishedPlayerIds.clear();
+        this.lastPlayedCard = null;
+        this.lastPlayerId = null;
+        this.currentTurnIndex = 0;
+        this.passedPlayerIds = new Set();
+        this.fillWithNPCs();
+
+        const deck = this.createShuffledDeck();
+        const cardsPerPlayer = Math.floor(deck.length / this.players.length);
+
+        for (let i = 0; i < this.players.length; i++) {
+            let hand = deck.slice(i * cardsPerPlayer, (i + 1) * cardsPerPlayer);
+            hand = this.sortHand(hand);
+
+            this.players[i].hand = hand;
+
+            if (!this.players[i].isNPC && this.players[i].ws) {
+                this.players[i].ws.send(JSON.stringify({
+                    type: "hand",
+                    cards: hand
+                }));
+            }
+        }
+
+        this.broadcastTurn();
+        this.broadcastPlayerList();
+    }
+
+    createShuffledDeck() {
+        const suits = ["♠", "♥", "♦", "♣"];
+        const ranks = ["3","4","5","6","7","8","9","10","J","Q","K","A","2"];
+        const deck = [];
+        for (let rank of ranks) {
+            for (let suit of suits) {
+                deck.push(`${suit}${rank}`);
+            }
+        }
+        for (let i = deck.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [deck[i], deck[j]] = [deck[j], deck[i]];
+        }
+        return deck;
+    }
+
+    sortHand(hand) {
+        const order = ["3","4","5","6","7","8","9","10","J","Q","K","A","2"];
+        return hand.slice().sort((a, b) => {
+            const ra = a.slice(1), rb = b.slice(1);
+            return order.indexOf(ra) - order.indexOf(rb);
+        });
+    }
+
+    getCardRank(card) {
+        return card.slice(1);
+    }
+
+    getCardStrength(card) {
+        const order = ["3","4","5","6","7","8","9","10","J","Q","K","A","2"];
+        return order.indexOf(this.getCardRank(card));
+    }
+
+    canPlayCardOnField(fieldCard, playCard) {
+        if (!fieldCard) return true;
+        return this.getCardStrength(playCard) > this.getCardStrength(fieldCard);
+    }
+
+    hasPlayableCard(player, lastCard) {
+        if (!player.hand || player.hand.length === 0) return false;
+        return player.hand.some(card => this.canPlayCardOnField(lastCard, card));
+    }
+
+    isAllOtherPlayersPassedOrBlocked(lastCard, lastPlayerId) {
+        if (!lastCard) return false;
+        const aliveOthers = this.players.filter(
+            p => !this.finishedPlayerIds.has(p.id) && p.id !== lastPlayerId
+        );
+        for (const p of aliveOthers) {
+            if (!this.passedPlayerIds.has(p.id) && this.hasPlayableCard(p, lastCard)) {
+                return false;
+            }
+        }
+        return aliveOthers.length > 0;
+    }
+
+    handlePlayerAction(playerId, type, payload) {
+        const player = this.players.find(p => p.id === playerId);
+
+        // 現在の手番プレイヤー決定
+        let skipCount = 0;
+        let currentPlayer;
+        while (skipCount < this.players.length) {
+            currentPlayer = this.players[this.currentTurnIndex];
+            if (!this.finishedPlayerIds.has(currentPlayer.id)) break;
+            this.currentTurnIndex = (this.currentTurnIndex + 1) % this.players.length;
+            skipCount++;
+        }
+
+        if (!player || !player.hand || player.id !== currentPlayer.id) return;
+
+        if (type === "play-card") {
+            const cardIndex = player.hand.indexOf(payload.card);
+            if (cardIndex !== -1) {
+                if (!this.canPlayCardOnField(this.lastPlayedCard, payload.card)) {
+                    if (!player.isNPC && player.ws) {
+                        player.ws.send(JSON.stringify({
+                            type: "error",
+                            message: "そのカードは出せません（場のカードより強いカードのみ出せます）"
+                        }));
+                    }
+                    this.broadcastTurn();
+                    this.broadcastPlayerList();
+                    return;
+                }
+
+                const [card] = player.hand.splice(cardIndex, 1);
+                this.lastPlayedCard = card;
+                this.lastPlayerId = playerId;
+                this.passedPlayerIds.clear();
+
+                if (!player.isNPC && player.ws) {
+                    player.ws.send(JSON.stringify({
+                        type: "hand",
+                        cards: this.sortHand(player.hand)
+                    }));
+                }
+
+                this.players.forEach(p => {
+                    if (p.ws) {
+                        p.ws.send(JSON.stringify({
+                            type: "field-card",
+                            card
+                        }));
+                    }
+                });
+
+                if (player.hand.length === 0) {
+                    this.finishedPlayerIds.add(player.id);
+                    this.broadcastWinner(player.name);
+                    this.broadcastPlayerList();
+                    return;
+                }
+
+                if (this.isAllOtherPlayersPassedOrBlocked(this.lastPlayedCard, this.lastPlayerId)) {
+                    this.lastPlayedCard = null;
+                    this.passedPlayerIds.clear();
+
+                    this.players.forEach(p => {
+                        if (p.ws) {
+                            p.ws.send(JSON.stringify({
+                                type: "field-card",
+                                card: "（リセット）"
+                            }));
+                        }
+                    });
+
+                    const idx = this.players.findIndex(p => p.id === this.lastPlayerId);
+                    this.currentTurnIndex = idx !== -1 ? idx : 0;
+                    this.broadcastTurn();
+                    this.broadcastPlayerList();
+
+                    const currentPlayer = this.players[this.currentTurnIndex];
+                    if (currentPlayer.isNPC && currentPlayer.hand && currentPlayer.hand.length > 0) {
+                        setTimeout(() => {
+                            if (this.finishedPlayerIds.has(currentPlayer.id)) return;
+                            const playable = currentPlayer.hand.find(card => this.canPlayCardOnField(this.lastPlayedCard, card));
+                            if (playable) {
+                                this.handlePlayerAction(currentPlayer.id, "play-card", { card: playable });
+                            } else {
+                                this.handlePlayerAction(currentPlayer.id, "pass", {});
+                            }
+                        }, 500);
+                    }
+                    return;
+                }
+
+                this.advanceTurn();
+                return;
+            }
+        } else if (type === "pass") {
+            this.passedPlayerIds.add(playerId);
+
+            if (player.ws) {
+                player.ws.send(JSON.stringify({
+                    type: "pass-ack"
+                }));
+            }
+
+            if (
+                this.isAllOtherPlayersPassedOrBlocked(this.lastPlayedCard, this.lastPlayerId)
+            ) {
+                this.lastPlayedCard = null;
+                this.passedPlayerIds.clear();
+
+                this.players.forEach(p => {
+                    if (p.ws) {
+                        p.ws.send(JSON.stringify({
+                            type: "field-card",
+                            card: "（リセット）"
+                        }));
+                    }
+                });
+
+                const idx = this.players.findIndex(p => p.id === this.lastPlayerId);
+                this.currentTurnIndex = idx !== -1 ? idx : 0;
+                this.broadcastTurn();
+                this.broadcastPlayerList();
+
+                const currentPlayer = this.players[this.currentTurnIndex];
+                if (currentPlayer.isNPC && currentPlayer.hand && currentPlayer.hand.length > 0) {
+                    setTimeout(() => {
+                        if (this.finishedPlayerIds.has(currentPlayer.id)) return;
+                        const playable = currentPlayer.hand.find(card => this.canPlayCardOnField(this.lastPlayedCard, card));
+                        if (playable) {
+                            this.handlePlayerAction(currentPlayer.id, "play-card", { card: playable });
+                        } else {
+                            this.handlePlayerAction(currentPlayer.id, "pass", {});
+                        }
+                    }, 500);
+                }
+                return;
+            } else {
+                this.advanceTurn();
+            }
+            return;
+        }
+    }
+
+    advanceTurn() {
+        let attempts = 0;
+        let found = false;
+        while (attempts < this.players.length) {
+            this.currentTurnIndex = (this.currentTurnIndex + 1) % this.players.length;
+            const nextPlayer = this.players[this.currentTurnIndex];
+            if (!this.finishedPlayerIds.has(nextPlayer.id)) {
+                found = true;
+                break;
+            }
+            attempts++;
+        }
+        if (!found) return;
+
+        this.broadcastTurn();
+        this.broadcastPlayerList();
+
+        const nextPlayer = this.players[this.currentTurnIndex];
+        if (nextPlayer.isNPC && nextPlayer.hand && nextPlayer.hand.length > 0) {
+            setTimeout(() => {
+                if (this.finishedPlayerIds.has(nextPlayer.id)) return;
+                const playable = nextPlayer.hand.find(card => this.canPlayCardOnField(this.lastPlayedCard, card));
+                if (playable) {
+                    this.handlePlayerAction(nextPlayer.id, "play-card", { card: playable });
+                } else {
+                    this.handlePlayerAction(nextPlayer.id, "pass", {});
+                }
+            }, 500);
+        }
+    }
+
+    broadcastTurn() {
+        const currentPlayer = this.players[this.currentTurnIndex];
+        this.players.forEach(p => {
+            if (p.ws) {
+                p.ws.send(JSON.stringify({
+                    type: "your-turn",
+                    isYourTurn: p.id === currentPlayer.id,
+                    currentPlayerId: currentPlayer.id
+                }));
+            }
+        });
+    }
+
+    broadcastWinner(winnerName) {
+        this.players.forEach(p => {
+            if (p.ws) {
+                p.ws.send(JSON.stringify({
+                    type: "game-ended",
+                    winner: winnerName
+                }));
+            }
+        });
+        this.started = false;
+        if (this.onDeleteRoom) {
+            setTimeout(() => {
+                this.onDeleteRoom(this.roomId);
+            }, 5000);
+        }
+    }
+
+    // 手札情報を各playerに含める
+    broadcastPlayerList() {
+        const playerSummaries = this.players.map(p => ({
+            id: p.id,
+            name: p.name,
+            isNPC: p.isNPC,
+            cardsLeft: p.hand && Array.isArray(p.hand) ? p.hand.length : undefined,
+            hand: p.hand || [], // ←ここで手札を含める（クライアントデバッグ用）
+            finished: this.finishedPlayerIds.has(p.id)
+        }));
+        const currentPlayer = this.players[this.currentTurnIndex];
+        this.players.forEach(p => {
+            if (p.ws) {
+                p.ws.send(JSON.stringify({
+                    type: "player-list",
+                    players: playerSummaries,
+                    currentPlayerId: currentPlayer.id
+                }));
+            }
+        });
+    }
+
+    isFull() {
+        return this.players.length >= this.maxPlayers;
+    }
+
+    removePlayer(playerId) {
+        this.players = this.players.filter(p => p.id !== playerId);
+    }
+}
+
+module.exports = GameRoom;
+
+
+
+
+
+server/server.js
+
+
+
+
+
+const express = require('express');
+const http = require('http');
+const WebSocket = require('ws');
+const path = require('path');
+const GameRoom = require('./GameRoom');
+
+const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
+
+app.use(express.static(path.join(__dirname, '../public')));
+
+const rooms = new Map();
+
+// ルーム削除関数
+function deleteRoom(roomId) {
+    rooms.delete(roomId);
+}
+
+wss.on('connection', (ws) => {
+    ws.on('message', (message) => {
+        let data;
+        try {
+            data = JSON.parse(message);
+        } catch (err) {
+            console.error('Invalid JSON:', message);
+            return;
+        }
+
+        const { type, payload } = data;
+
+        if (type === 'create-room') {
+            const { roomId, maxPlayers, playerName } = payload;
+            if (rooms.has(roomId)) {
+                ws.send(JSON.stringify({ type: 'error', message: 'その部屋IDは既に存在します。' }));
+                return;
+            }
+
+            const room = new GameRoom(roomId, maxPlayers, deleteRoom);
+            const hostPlayer = { id: generateId(), name: playerName, isNPC: false, ws };
+            room.addPlayer(hostPlayer);
+            rooms.set(roomId, room);
+
+            ws.roomId = roomId;
+            ws.playerId = hostPlayer.id;
+
+            ws.send(JSON.stringify({ type: 'room-created', roomId }));
+        }
+
+        else if (type === 'join-room') {
+            const { roomId, playerName } = payload;
+            const room = rooms.get(roomId);
+
+            if (!room) {
+                ws.send(JSON.stringify({ type: 'error', message: 'その部屋は存在しません。' }));
+                return;
+            }
+
+            // --- ここから復帰処理 ---
+            const player = room.players.find(p => p.name === playerName);
+            if (player) {
+                // 既存プレイヤーのwsを書き換えて復帰
+                player.ws = ws;
+                ws.roomId = roomId;
+                ws.playerId = player.id;
+                ws.send(JSON.stringify({ type: 'joined-room', roomId }));
+                room.broadcastPlayerList();
+                // 復帰した人の手札・ターン等も再通知
+                if (player.hand) {
+                    ws.send(JSON.stringify({ type: 'hand', cards: player.hand }));
+                }
+                if (room.players[room.currentTurnIndex].id === player.id) {
+                    ws.send(JSON.stringify({
+                        type: "your-turn",
+                        isYourTurn: true,
+                        currentPlayerId: player.id
+                    }));
+                }
+                return;
+            }
+            // --- 復帰処理ここまで ---
+
+            const newPlayer = { id: generateId(), name: playerName, isNPC: false, ws };
+            const success = room.replaceNPCWithHuman(newPlayer) || room.addPlayer(newPlayer);
+            if (!success) {
+                ws.send(JSON.stringify({ type: 'error', message: '部屋が満員です。' }));
+                return;
+            }
+
+            ws.roomId = roomId;
+            ws.playerId = newPlayer.id;
+
+            ws.send(JSON.stringify({ type: 'joined-room', roomId }));
+            room.broadcastPlayerList();
+        }
+
+        else if (type === 'start-game') {
+            const room = rooms.get(ws.roomId);
+            if (!room) return;
+
+            room.startGame();
+            room.broadcastPlayerList();
+
+            room.players.forEach(p => {
+                if (p.ws) {
+                    p.ws.send(JSON.stringify({
+                        type: 'game-started',
+                        players: room.players.map(p2 => ({
+                            id: p2.id,
+                            name: p2.name,
+                            isNPC: p2.isNPC
+                        }))
+                    }));
+                }
+            });
+        }
+
+        else if (type === 'play-card' || type === 'pass') {
+            const room = rooms.get(ws.roomId);
+            if (!room) return;
+
+            payload.playerId = ws.playerId;
+            room.handlePlayerAction(ws.playerId, type, payload);
+        }
+    });
+
+    ws.on('close', () => {
+        const room = rooms.get(ws.roomId);
+        if (room) {
+            const player = room.players.find(p => p.id === ws.playerId);
+            if (player) {
+                player.ws = null;
+            }
+            // 部屋は決着(game-ended)まで絶対消さない！
+        }
+    });
+});
+
+function generateId() {
+    return Math.random().toString(36).substr(2, 9);
+}
+
+server.listen(3000, () => {
+    console.log('サーバー起動 http://localhost:3000');
+});

@@ -3,17 +3,34 @@
 
 <head>
     <meta charset="UTF-8" />
-    <title>ゲーム画面</title>
+    <title>大富豪オンライン - ゲーム</title>
     <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
-    <h2 id="playerNameDisplay"></h2>
-    <div id="handArea">手札: <span id="handCards"></span></div>
-    <div id="actionArea">
-        <button onclick="playCard()">出す</button>
-        <button onclick="pass()">パス</button>
+    <h1>大富豪オンライン</h1>
+    <div id="roomLabel"></div>
+    <div id="playersList" class="players-list"></div>
+    <div id="fieldCards" class="field"></div>
+    <div id="statusMsg" class="status-msg"></div>
+    <div id="lastAction" class="last-action"></div>
+
+    <div id="handSection">
+        <h2 id="handTitle"></h2>
+        <div id="handCards" class="hand-cards"></div>
+        <div class="controls">
+            <button id="playBtn">出す</button>
+            <button id="passBtn">パス</button>
+        </div>
     </div>
+
+    <div id="result" class="result"></div>
+
+    <!-- ホスト用コントロール -->
+    <button id="startBtn" class="start-btn">ゲーム開始</button>
+    <button id="resetBtn" class="reset-btn">再戦</button>
+    <button id="quitBtn"  class="reset-btn">ルーム解散</button>  <!-- ★追加★ -->
+
     <script src="client.js"></script>
 </body>
 
