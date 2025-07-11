@@ -8,29 +8,36 @@
 </head>
 
 <body>
-    <h1>大富豪オンライン</h1>
-    <div id="roomLabel"></div>
-    <div id="playersList" class="players-list"></div>
-    <div id="fieldCards" class="field"></div>
-    <div id="statusMsg" class="status-msg"></div>
-    <div id="lastAction" class="last-action"></div>
+    <!-- JS処理完了まで隠すコンテナ -->
+    <div id="app" style="visibility:hidden">
 
-    <div id="handSection">
-        <h2 id="handTitle"></h2>
-        <div id="handCards" class="hand-cards"></div>
-        <div class="controls">
-            <button id="playBtn">出す</button>
-            <button id="passBtn">パス</button>
+        <div id="white-overlay" class="js-overlay"></div>
+
+        <h1 class="page-title">大富豪オンライン</h1>
+        <div id="roomLabel" class="room-label js-room-label"></div>
+        <div id="playersList" class="players-list js-players-list"></div>
+        <div id="fieldCards" class="field js-field-cards"></div>
+        <div id="statusMsg" class="status-msg js-status-msg"></div>
+
+        <div id="handSection" class="hand-section js-hand-section">
+            <div id="handCards" class="hand-cards js-hand-cards"></div>
+            <div class="controls js-controls">
+                <button id="playBtn" class="btn btn--primary js-play-btn">出す</button>
+                <button id="passBtn" class="btn btn--primary js-pass-btn">パス</button>
+            </div>
         </div>
+
+        <div id="result" class="result js-result"></div>
+
+        <!-- ボタン群をフッターにまとめて下部に配置 -->
+        <div id="footerControls" class="footer-controls js-footer-controls">
+            <button id="startBtn" class="btn btn--primary js-start-btn">ゲーム開始</button>
+            <button id="resetBtn" class="btn btn--primary js-reset-btn">再戦</button>
+            <button id="quitBtn" class="btn btn--primary js-quit-btn">ルーム解散</button>
+            <button id="leaveBtn" class="btn btn--primary js-leave-btn">退出</button>
+        </div>
+
     </div>
-
-    <div id="result" class="result"></div>
-
-    <!-- ホスト用コントロール -->
-    <button id="startBtn" class="start-btn">ゲーム開始</button>
-    <button id="resetBtn" class="reset-btn">再戦</button>
-    <button id="quitBtn"  class="reset-btn">ルーム解散</button>  <!-- ★追加★ -->
-
     <script src="client.js"></script>
 </body>
 

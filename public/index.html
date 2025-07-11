@@ -1,21 +1,18 @@
 <!DOCTYPE html>
 <html lang="ja">
-
 <head>
     <meta charset="UTF-8" />
     <title>大富豪オンライン - 入室</title>
     <link rel="stylesheet" href="style.css" />
 </head>
-
 <body>
-    <h1>大富豪オンライン ゲーム</h1>
-    <div class="form-container">
-        <form id="joinForm" action="game.html" method="GET">
+    <h1 class="page-title">大富豪オンライン ゲーム</h1>
+    <div class="form-container js-form-container">
+        <form id="joinForm" class="js-join-form" action="game.html" method="GET">
             <label>プレイヤー名: <input type="text" name="name" required /></label><br />
             <label>ルームID: <input type="text" name="room" required /></label><br />
-            <button type="submit">入室</button>
+            <button type="submit" class="btn btn--primary js-submit-btn">入室</button>
         </form>
     </div>
 </body>
-
 </html>

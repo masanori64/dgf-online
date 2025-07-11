@@ -1,119 +1,363 @@
 // =================================
-//  client.js  ― 完全版 2025-07
+//  client.js ― 保守性・可読性・ログ・UI制御強化版＋再読み込み対策
 // =================================
-let ws, playerName, roomId;
 
-// --------- DOM ユーティリティ ---------
+console.log('[Client] script loaded');
+
+// --------- リロード判別フラグ ---------
+let isReloading = false;
+window.addEventListener('beforeunload', () => {
+    isReloading = true;
+});
+
+// --------- 部屋解散判別フラグ ---------
+let roomDeletedReceived = false;
+
+// --------- DOMユーティリティ ---------
 const $ = id => document.getElementById(id);
-
-// --------- WebSocket 接続 ---------
-function connect() {
-  const proto = location.protocol === 'https:' ? 'wss':'ws';
-  ws = new WebSocket(`${proto}://${location.host}`);
-  ws.onopen = () => ws.send(JSON.stringify({type:'join', room:roomId, name:playerName}));
-  ws.onmessage = e => handle(JSON.parse(e.data));
-  ws.onclose   = () => setTimeout(connect,1000);   // 自動再接続
+const EL = {
+    app: 'app',
+    roomLabel: 'roomLabel',
+    playersList: 'playersList',
+    fieldCards: 'fieldCards',
+    statusMsg: 'statusMsg',
+    handSection: 'handSection',
+    handCards: 'handCards',
+    result: 'result',
+    footerControls: 'footerControls',
+    startBtn: 'startBtn',
+    resetBtn: 'resetBtn',
+    quitBtn: 'quitBtn',
+    leaveBtn: 'leaveBtn',
+    playBtn: 'playBtn',
+    passBtn: 'passBtn',
+    whiteOverlay: 'white-overlay',
+};
+function getEl(key) { return $(EL[key]); }
+function setDisplay(key, show, style = 'inline-block') {
+    const el = getEl(key);
+    if (el) el.style.display = show ? style : 'none';
 }
 
-// --------- 初期化 ---------
-window.onload = () => {
-  const p = new URLSearchParams(location.search);
-  playerName = p.get('name'); roomId = p.get('room');
-  if(!playerName||!roomId){ location = 'index.html'; return; }
-  $('roomLabel').textContent = `ルーム: ${roomId}`;
-  connect();
+// --------- ランク変換ユーティリティ ---------
+function parseRank(r) {
+    switch (r) {
+        case 'J': return 11;
+        case 'Q': return 12;
+        case 'K': return 13;
+        case 'A': return 14;
+        case '2': return 15;
+        default: return Number(r);
+    }
+}
 
-  $('startBtn').onclick = ()=>ws.send(JSON.stringify({type:'start'}));
-  $('resetBtn').onclick = ()=>ws.send(JSON.stringify({type:'reset'}));
-  $('quitBtn').onclick  = ()=>location='index.html';
-  $('playBtn').onclick  = playSelected;
-  $('passBtn').onclick  = ()=>ws.send(JSON.stringify({type:'pass'}));
+// --------- アプリ全体状態 ---------
+const App = {
+    ws: null,
+    playerName: '',
+    roomId: '',
+    finalStateKey: 'finalState',
+    log: (...args) => console.log('[Client]', ...args),
+    shown: false,
 };
 
-// --------- 手札から選択カードを送信 ---------
-function playSelected(){
-  const sel=[...document.querySelectorAll('.card.selected')];
-  if(sel.length===0)return;
-  const data=sel.map(b=>({suit:b.dataset.suit, rank:b.dataset.rank}));
-  ws.send(JSON.stringify({type:'play',cards:data}));
-  sel.forEach(b=>b.classList.remove('selected'));
+// --------- 初期化 ---------
+window.onload = () => init();
+
+function init() {
+    App.log('init start');
+
+    // ── 初回起動かリロード再読み込みかを判別
+    const isReload = sessionStorage.getItem('reloaded') === 'true';
+    sessionStorage.setItem('reloaded', 'true');
+
+    if (!isReload) {
+        // 初回起動：フラグ＆結果をクリアして通常ルートへ
+        localStorage.removeItem('roomDeletedFlag');
+        localStorage.removeItem(App.finalStateKey);
+        App.log('init: first load, cleared flags');
+    } else {
+        // リロード時：解散フラグと finalState を復元ルートで利用
+        App.log('init: reload detected');
+        const wasDeleted = localStorage.getItem('roomDeletedFlag') === 'true';
+        const last = JSON.parse(localStorage.getItem(App.finalStateKey) || 'null');
+        if (wasDeleted && last && last.type === 'final') {
+            App.log('init: room was deleted, restoring finalState');
+            render(last);
+            // 終了時と同じコントロール表示
+            const isHost = last.players[0]?.name === App.playerName;
+            setDisplay('resetBtn', isHost);
+            setDisplay('quitBtn', isHost);
+            setDisplay('startBtn', false);
+            setDisplay('leaveBtn', !isHost);
+            // ── ここでも「退出」ボタンのハンドラを必ず設定
+            getEl('leaveBtn').onclick = () => {
+                sessionStorage.removeItem('reloaded');
+                location.href = 'index.html';
+            };
+            return;
+        }
+    }
+
+    // URL パラメータ取得
+    const p = new URLSearchParams(location.search);
+    App.playerName = p.get('name') || '';
+    App.roomId = p.get('room') || '';
+    App.log('params', { name: App.playerName, room: App.roomId });
+    if (!App.playerName || !App.roomId) {
+        location.href = 'index.html';
+        return;
+    }
+    getEl('roomLabel').textContent = `ルーム: ${App.roomId}`;
+
+    // ボタンイベント登録
+    getEl('startBtn').onclick = () => {
+        localStorage.removeItem(App.finalStateKey);
+        App.log('action.start');
+        App.ws?.send(JSON.stringify({ type: 'start' }));
+    };
+    getEl('resetBtn').onclick = () => {
+        localStorage.removeItem(App.finalStateKey);
+        App.log('action.reset');
+        App.ws?.send(JSON.stringify({ type: 'reset' }));
+    };
+    getEl('quitBtn').onclick = () => {
+        App.log('action.dissolve');
+        App.ws?.send(JSON.stringify({ type: 'dissolve' }));
+        showOverlay('ルームを解散しました。');
+    };
+    getEl('playBtn').onclick = playSelected;
+    getEl('passBtn').onclick = () => {
+        App.log('action.pass');
+        App.ws?.send(JSON.stringify({ type: 'pass' }));
+    };
+    getEl('leaveBtn').onclick = () => {
+        // リロード判定フラグもクリアして、再度入室時には初回扱いに戻す
+        sessionStorage.removeItem('reloaded');
+        localStorage.removeItem(App.finalStateKey);
+        location.href = 'index.html';
+    };
+
+    // WebSocket 接続
+    connect();
 }
 
-// --------- 受信メッセージで画面更新 ---------
-function handle(state){
-  // ===== ゲーム終了画面 =====
-  if(state.type==='final'){
-    $('playersList').innerHTML='';
-    $('fieldCards').textContent='';
-    $('handSection').style.display='none';
-    $('statusMsg').textContent='ゲーム終了';
-    const res=$('result'); res.innerHTML='<h3>結果</h3>';
-    state.ranking.forEach(r=>{
-      const div=document.createElement('div');
-      div.textContent=`${r.title}: ${r.name}さん`;
-      res.appendChild(div);
+// --------- WebSocket 接続・ハンドラ ---------
+function connect() {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    App.log('ws.connect', `${proto}://${location.host}`);
+    App.ws = new WebSocket(`${proto}://${location.host}`);
+
+    App.ws.onopen = () => {
+        App.log('ws.open → join', { room: App.roomId, name: App.playerName });
+        App.ws.send(JSON.stringify({
+            type: 'join',
+            room: App.roomId,
+            name: App.playerName,
+            mode: 'create'
+        }));
+    };
+
+    App.ws.onmessage = msg => {
+        const data = JSON.parse(msg.data);
+        // ここで受信データを全ログ
+        App.log('ws.onmessage', {
+            type: data.type,
+            started: data.started,
+            yourHand: data.yourHand,
+            fieldCards: data.field?.cards
+        });
+
+        // ── 通常の 'update' メッセージ受信時のみ stale な finalState を消去
+        if (data.type === 'update') {
+            localStorage.removeItem(App.finalStateKey);
+        }
+
+        if (data.type === 'room-deleted') {
+            roomDeletedReceived = true;
+            // 永続化して, リロード後も結果復元ルートに入れるように
+            localStorage.setItem('roomDeletedFlag', 'true');
+            const isHost = getEl('resetBtn').style.display === 'inline-block'
+                || getEl('quitBtn').style.display === 'inline-block';
+            if (isHost) {
+                // ホストは即リダイレクト
+                location.href = 'index.html';
+            }
+            // 参加者は何もしない（結果画面維持）
+            return;
+        }
+
+        if (data.type === 'error') {
+            App.log('ws.error', data.message);
+            showOverlay(data.message || 'エラーが発生しました。');
+            return;
+        }
+        // 終了時のみ finalState に保存
+        if (data.type === 'final' || data.gameOver || data.ranking?.length > 0) {
+            localStorage.setItem(App.finalStateKey, JSON.stringify(data));
+        }
+
+        App.log('before render', { type: data.type });
+        render(data);
+        App.log('after render', {
+            handSectionVisible: getEl('handSection').style.display,
+            handButtonsCount: document.querySelectorAll('.card').length
+        });
+    };
+
+    App.ws.onclose = () => {
+        App.log('ws.close');
+        // ① リロード時は何もしない（再接続ルートへ）
+        if (isReloading) {
+            App.log('reload detected, skip onclose');
+            return;
+        }
+        // ② 部屋解散後の切断なら何もしない（結果画面を維持）
+        if (roomDeletedReceived) {
+            App.log('room-deleted detected, skip onclose');
+            return;
+        }
+        // ③ 通常切断時：結果があれば再描画、なければトップへ
+        const last = JSON.parse(localStorage.getItem(App.finalStateKey) || 'null');
+        if (last) {
+            render(last);
+            setDisplay('footerControls', true);
+            return;
+        }
+        showOverlay('サーバーとの接続が切れました。');
+    };
+}
+
+// --------- オーバーレイ+アラート ---------
+function showOverlay(msg) {
+    let ov = getEl('whiteOverlay');
+    if (!ov) {
+        ov = document.createElement('div');
+        ov.id = EL.whiteOverlay;
+        Object.assign(ov.style, {
+            position: 'fixed', top: 0, left: 0,
+            width: '100vw', height: '100vh',
+            background: '#fff', zIndex: 9999
+        });
+        document.body.appendChild(ov);
+    }
+    ov.style.display = 'block';
+    setTimeout(() => { alert(msg); location.href = 'index.html'; }, 10);
+}
+
+// --------- カード出し ---------
+function playSelected() {
+    const sel = [...document.querySelectorAll('.card.selected')];
+    if (!sel.length) return;
+    const cards = sel.map(b => ({
+        suit: b.dataset.suit,
+        rank: parseRank(b.dataset.rank)
+    }));
+    App.log('action.play', cards);
+    App.ws.send(JSON.stringify({ type: 'play', cards }));
+    sel.forEach(b => b.classList.remove('selected'));
+}
+
+// --------- UI 描画 ---------
+function render(state) {
+    // 初回描画後に #app を可視化
+    if (!App.shown) {
+        getEl('app').style.visibility = 'visible';
+        App.shown = true;
+    }
+
+    // 全画面共通で先にこれらを非表示
+    ['result', 'footerControls', 'playersList'].forEach(k => setDisplay(k, false));
+
+    // タイトル
+    const h1 = document.querySelector('h1');
+    if (h1) { h1.textContent = '大富豪オンライン'; h1.style.textAlign = 'left'; }
+
+    // ── 終了画面 ──
+    if (state.type === 'final') {
+        getEl('roomLabel').textContent = `ルーム: ${state.room}`;
+        // 終了時は手札・場・プレイヤーリストを非表示にして余計な枠を消す
+        setDisplay('handSection', false);
+        setDisplay('playersList', false);
+        setDisplay('fieldCards', false);
+        getEl('statusMsg').textContent = 'ゲーム終了';
+
+        // 結果表示
+        const res = getEl('result');
+        res.innerHTML = '<h3>結果</h3>';
+        state.ranking.forEach(r => {
+            const d = document.createElement('div');
+            d.textContent = `${r.rank}位: ${r.name}さん`;
+            res.appendChild(d);
+        });
+
+        const isHost = state.players[0]?.name === App.playerName;
+        setDisplay('resetBtn', isHost);
+        setDisplay('quitBtn', isHost);
+        setDisplay('leaveBtn', !isHost);
+
+        setDisplay('result', true);
+        setDisplay('footerControls', true);
+        return;
+    }
+
+    // ── 待機中 ──
+    if (!state.started) {
+        const canStart = state.players[0]?.name === App.playerName && state.players.length >= 2;
+        setDisplay('startBtn', canStart);
+        ['resetBtn', 'quitBtn'].forEach(k => setDisplay(k, false));
+        setDisplay('leaveBtn', true);
+
+        getEl('playersList').innerHTML = state.players
+            .map(p => `<div>${p.name}さん（入室中）</div>`).join('');
+        getEl('fieldCards').textContent = '（ゲーム待機中）';
+        setDisplay('handSection', false);
+        getEl('statusMsg').textContent = '';
+        getEl('result').innerHTML = '';
+
+        setDisplay('footerControls', true);
+        setDisplay('playersList', true);
+        return;
+    }
+
+    // ── ゲーム中 ──
+    ['startBtn', 'resetBtn', 'quitBtn', 'leaveBtn', 'footerControls', 'result'].forEach(k => setDisplay(k, false));
+    setDisplay('playersList', true);
+
+    // プレイヤーリスト
+    getEl('playersList').innerHTML = state.players.map(p => {
+        const cur = p.name === state.currentTurn;
+        const me = p.name === App.playerName;
+        return `<div${cur ? ' class="current-turn"' : ''}${me ? ' style="font-weight:bold"' : ''}>`
+            + (p.finished
+                ? `${p.name}さん - 上がり`
+                : `${p.name}さん - ${p.cardsCount}枚`)
+            + `</div>`;
+    }).join('');
+
+    // 場
+    getEl('fieldCards').textContent = state.field.cards.length
+        ? `場: [${state.field.cards.join(', ')}]`
+        : '場: （なし）';
+
+    // 手札
+    const hc = getEl('handCards');
+    hc.innerHTML = '';
+    state.yourHand.forEach(s => {
+        const m = s.match(/^([♣♦♥♠])([0-9JQKA2]+)$/);
+        if (!m) return;
+        const btn = document.createElement('button');
+        btn.className = 'card';
+        btn.textContent = s;
+        btn.dataset.suit = m[1];
+        btn.dataset.rank = m[2];
+        btn.onclick = () => btn.classList.toggle('selected');
+        hc.appendChild(btn);
     });
-    $('resetBtn').style.display = (state.players[0].name===playerName)?'inline-block':'none';
-    $('quitBtn').style.display  = (state.players[0].name===playerName)?'inline-block':'none';
-    $('startBtn').style.display='none';
-    return;
-  }
+    setDisplay('handSection', true);
 
-  // ===== 待機画面 =====
-  if(!state.started){
-    $('startBtn').style.display =
-      state.players.length>=1 && state.players[0].name===playerName ? 'inline-block':'none';
-    $('resetBtn').style.display='none'; $('quitBtn').style.display='none';
-
-    $('playersList').innerHTML = state.players.map(p=>
-      `<div>${p.name}さん（入室中）</div>`).join('');
-    $('fieldCards').textContent='（ゲーム待機中）';
-    $('handSection').style.display='none';
-    $('result').innerHTML=''; $('statusMsg').textContent='';
-    return;
-  }
-
-  // ===== プレイ中画面 =====
-  $('startBtn').style.display='none';   // ★ゲーム中非表示★
-  $('resetBtn').style.display='none';
-  $('quitBtn').style.display='none';
-
-  // プレイヤー一覧 + ターンハイライト
-  $('playersList').innerHTML = state.players.map(p=>{
-    const cur = p.name===state.currentTurn ? ' style="background:#ffef99"' : '';
-    const me  = p.name===playerName ? ' style="font-weight:bold"' : '';
-    const sty = cur||me;
-    const txt = p.finished?`${p.name}さん - 上がり`
-              :`${p.name}さん - ${p.cardsCount}枚`;
-    return `<div${sty}>${txt}</div>`;
-  }).join('');
-
-  // フィールド
-  $('fieldCards').textContent =
-    state.field.cards.length ? `場: [${state.field.cards.join(', ')}]` : '場: （なし）';
-
-  // 手札
-  const hc=$('handCards'); hc.innerHTML='';
-  state.yourHand.forEach(s=>{
-    const b=document.createElement('button'); b.className='card'; b.textContent=s;
-    if(s==='Joker'){b.dataset.suit='J'; b.dataset.rank='16';}
-    else{b.dataset.suit=s[0]; b.dataset.rank=s.slice(1);}
-    b.onclick=()=>b.classList.toggle('selected');
-    hc.appendChild(b);
-  });
-  $('handSection').style.display='block';
-
-  // ボタン可否
-  const myTurn = state.currentTurn===playerName;
-  $('playBtn').disabled=!myTurn;
-  $('passBtn').disabled=!myTurn || state.field.cards.length===0;
-
-  // メッセージ
-  $('statusMsg').textContent = state.revolution?'革命発生中!':'';
-  $('lastAction').textContent = state.lastMove ?
-    (state.lastMove.move==='pass'
-      ? `${state.lastMove.player}さんがパスしました`
-      : `${state.lastMove.player}さんが ${state.lastMove.cards.join(', ')} を出しました`
-        +(state.lastMove.special?` (${state.lastMove.special})`:''))
-    : '';
+    // ボタン活性
+    const myTurn = state.currentTurn === App.playerName;
+    getEl('playBtn').disabled = !myTurn;
+    getEl('passBtn').disabled = !myTurn || state.field.cards.length === 0;
 }
