@@ -247,7 +247,7 @@ function showOverlay(msg) {
 
 // --------- カード出し ---------
 function playSelected() {
-    const sel = [...document.querySelectorAll('.card.selected')];
+    const sel = [...document.querySelectorAll('.card-img.selected')];
     if (!sel.length) return;
     const cards = sel.map(b => ({
         suit: b.dataset.suit,
@@ -257,8 +257,17 @@ function playSelected() {
     App.ws.send(JSON.stringify({ type: 'play', cards }));
     sel.forEach(b => b.classList.remove('selected'));
 }
-
 // --------- UI 描画 ---------
+
+window.addEventListener('DOMContentLoaded', () => {
+    showWaitingDecorations();
+});
+
+// ✅ スタートボタンを押したら装飾を隠す
+document.querySelector('.js-start-btn')?.addEventListener('click', () => {
+    hideWaitingDecorations();
+});
+
 function render(state) {
     // 初回描画後に #app を可視化
     if (!App.shown) {
@@ -269,20 +278,22 @@ function render(state) {
     // 全画面共通で先にこれらを非表示
     ['result', 'footerControls', 'playersList'].forEach(k => setDisplay(k, false));
 
-    // タイトル
+    // ✅ タイトルの表示・非表示制御（簡潔に統一）
     const h1 = document.querySelector('h1');
-    if (h1) { h1.textContent = '大富豪オンライン'; h1.style.textAlign = 'left'; }
+    if (h1) {
+        h1.textContent = '大富豪オンライン';
+        h1.style.textAlign = 'left';
+        h1.style.display = state.started ? 'none' : 'block';
+    }
 
     // ── 終了画面 ──
     if (state.type === 'final') {
         getEl('roomLabel').textContent = `ルーム: ${state.room}`;
-        // 終了時は手札・場・プレイヤーリストを非表示にして余計な枠を消す
         setDisplay('handSection', false);
         setDisplay('playersList', false);
         setDisplay('fieldCards', false);
         getEl('statusMsg').textContent = 'ゲーム終了';
 
-        // 結果表示
         const res = getEl('result');
         res.innerHTML = '<h3>結果</h3>';
         state.ranking.forEach(r => {
@@ -341,20 +352,39 @@ function render(state) {
         : '場: （なし）';
 
     // 手札
-    const hc = getEl('handCards');
-    hc.innerHTML = '';
-    state.yourHand.forEach(s => {
-        const m = s.match(/^([♣♦♥♠])([0-9JQKA2]+)$/);
-        if (!m) return;
-        const btn = document.createElement('button');
-        btn.className = 'card';
-        btn.textContent = s;
-        btn.dataset.suit = m[1];
-        btn.dataset.rank = m[2];
-        btn.onclick = () => btn.classList.toggle('selected');
-        hc.appendChild(btn);
-    });
-    setDisplay('handSection', true);
+const hc = getEl('handCards');
+hc.innerHTML = '';
+state.yourHand.forEach(s => {
+    const m = s.match(/^([♣♦♥♠])([0-9JQKA]+)$/);
+    if (!m) return;
+
+    const suit = m[1];
+    const rank = m[2];
+
+    const code = suitToCode(suit) + rank; // 例: "S1", "H10"など
+
+    const img = document.createElement('img');
+    img.className = 'card-img';
+    img.src = `images/cards/${code}.png`;
+    img.alt = code;
+    img.dataset.suit = suit;
+    img.dataset.rank = rank;
+    img.onclick = () => img.classList.toggle('selected');
+
+    hc.appendChild(img);
+});
+
+setDisplay('handSection', true);
+
+// 絵札の記号→頭文字コード（S, H, D, C）
+function suitToCode(suit) {
+    switch (suit) {
+        case '♠': return 'S';
+        case '♥': return 'H';
+        case '♦': return 'D';
+        case '♣': return 'C';
+    }
+}
 
     // ボタン活性
     const myTurn = state.currentTurn === App.playerName;

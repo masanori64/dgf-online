@@ -2,18 +2,22 @@
 <html lang="ja">
 
 <head>
-    <meta charset="UTF-8" />
-    <title>大富豪オンライン - ゲーム</title>
-    <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8" />
+  <title>大富豪オンライン</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
-
 <body>
+     <!-- タイトル画像：白い枠の外に配置 -->
+  <div class="title-wrapper">
+    <img src="images/title.png" alt="大富豪オンライン" class="title-image" />
+  </div>
+
     <!-- JS処理完了まで隠すコンテナ -->
     <div id="app" style="visibility:hidden">
 
         <div id="white-overlay" class="js-overlay"></div>
 
-        <h1 class="page-title">大富豪オンライン</h1>
+        
         <div id="roomLabel" class="room-label js-room-label"></div>
         <div id="playersList" class="players-list js-players-list"></div>
         <div id="fieldCards" class="field js-field-cards"></div>
@@ -24,7 +28,7 @@
             <div class="controls js-controls">
                 <button id="playBtn" class="btn btn--primary js-play-btn">出す</button>
                 <button id="passBtn" class="btn btn--primary js-pass-btn">パス</button>
-            </div>
+            </div>  
         </div>
 
         <div id="result" class="result js-result"></div>
@@ -39,6 +43,11 @@
 
     </div>
     <script src="client.js"></script>
+
+<!-- 左右の装飾画像：初期は非表示 -->
+<img src="images/leftside.png" alt="左装飾" class="side-image left wait-deco" style="display: none;">
+<img src="images/rightside.png" alt="右装飾" class="side-image right wait-deco" style="display: none;">
+
 </body>
 
 </html>

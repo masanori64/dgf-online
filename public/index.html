@@ -1,18 +1,51 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
-    <meta charset="UTF-8" />
-    <title>大富豪オンライン - 入室</title>
-    <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8" />
+  <title>大富豪オンライン</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
-    <h1 class="page-title">大富豪オンライン ゲーム</h1>
-    <div class="form-container js-form-container">
-        <form id="joinForm" class="js-join-form" action="game.html" method="GET">
-            <label>プレイヤー名: <input type="text" name="name" required /></label><br />
-            <label>ルームID: <input type="text" name="room" required /></label><br />
-            <button type="submit" class="btn btn--primary js-submit-btn">入室</button>
-        </form>
+  <!-- タイトル画像：白い枠の外に配置 -->
+  <div class="title-wrapper">
+    <img src="images/title.png" alt="大富豪オンライン" class="title-image" />
+  </div>
+
+  <!-- フォーム部分：白背景 -->
+   <div class="form-container js-form-container">
+        <form id="joinForm" onsubmit="joinRoom(event)">
+ <input type="text" id="playerName" placeholder="名前を入力">
+ <input type="text" id="roomName" placeholder="部屋名を入力"> 
+<button  class="btn btn--primary js-leave-btn">部屋に入る</button>
+</form>
     </div>
+    <!-- 左右の装飾画像 -->
+<img src="images/leftside.png" alt="左装飾" class="side-image right">
+<img src="images/rightside.png" alt="右装飾" class="side-image left">
+
 </body>
+
 </html>
+
+
+<script>
+  function joinRoom(event) {
+    event.preventDefault(); // フォームの自動送信を防ぐ
+
+    const name = encodeURIComponent(document.getElementById('playerName').value);
+    const room = encodeURIComponent(document.getElementById('roomName').value);
+
+    // 入力チェック（任意）
+    if (!name || !room) {
+      alert("名前と部屋名を入力してください");
+      return;
+    }
+
+    // 正常に遷移
+    location.href = `game.html?room=${room}&name=${name}`;
+  }
+</script>
+
+
