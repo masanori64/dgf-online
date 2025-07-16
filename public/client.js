@@ -247,7 +247,9 @@ function showOverlay(msg) {
 
 // --------- カード出し ---------
 function playSelected() {
-    const sel = [...document.querySelectorAll('.card.selected')];
+    // img要素優先（新UI）、なければ従来のbutton
+    let sel = [...document.querySelectorAll('.card-img.selected')];
+    if (!sel.length) sel = [...document.querySelectorAll('.card.selected')];
     if (!sel.length) return;
     const cards = sel.map(b => ({
         suit: b.dataset.suit,
@@ -276,7 +278,6 @@ function render(state) {
     // ── 終了画面 ──
     if (state.type === 'final') {
         getEl('roomLabel').textContent = `ルーム: ${state.room}`;
-        // 終了時は手札・場・プレイヤーリストを非表示にして余計な枠を消す
         setDisplay('handSection', false);
         setDisplay('playersList', false);
         setDisplay('fieldCards', false);
@@ -335,26 +336,57 @@ function render(state) {
             + `</div>`;
     }).join('');
 
-    // 場
-    getEl('fieldCards').textContent = state.field.cards.length
-        ? `場: [${state.field.cards.join(', ')}]`
-        : '場: （なし）';
+    // 場（画像表示）
+    const fc = getEl('fieldCards');
+    fc.innerHTML = '';
+    if (state.field.cards.length) {
+        state.field.cards.forEach(s => {
+            const m = s.match(/^([♣♦♥♠])([0-9JQKA]+)$/);
+            if (!m) return;
+            const suit = m[1];
+            const rank = m[2];
+            const code = suitToCode(suit) + rank;
+            const img = document.createElement('img');
+            img.className = 'fieldcard';
+            img.src = `images/cards/${code}.png`;
+            img.alt = code;
+            img.dataset.suit = suit;
+            img.dataset.rank = rank;
+            fc.appendChild(img);
+        });
+    } else {
+        fc.textContent = '場　なし';
+    }
 
-    // 手札
+    // 手札（画像表示）
     const hc = getEl('handCards');
     hc.innerHTML = '';
     state.yourHand.forEach(s => {
-        const m = s.match(/^([♣♦♥♠])([0-9JQKA2]+)$/);
+        const m = s.match(/^([♣♦♥♠])([0-9JQKA]+)$/);
         if (!m) return;
-        const btn = document.createElement('button');
-        btn.className = 'card';
-        btn.textContent = s;
-        btn.dataset.suit = m[1];
-        btn.dataset.rank = m[2];
-        btn.onclick = () => btn.classList.toggle('selected');
-        hc.appendChild(btn);
+        const suit = m[1];
+        const rank = m[2];
+        const code = suitToCode(suit) + rank;
+        const img = document.createElement('img');
+        img.className = 'card-img';
+        img.src = `images/cards/${code}.png`;
+        img.alt = code;
+        img.dataset.suit = suit;
+        img.dataset.rank = rank;
+        img.onclick = () => img.classList.toggle('selected');
+        hc.appendChild(img);
     });
     setDisplay('handSection', true);
+
+    // スート記号→頭文字コード
+    function suitToCode(suit) {
+        switch (suit) {
+            case '♠': return 'S';
+            case '♥': return 'H';
+            case '♦': return 'D';
+            case '♣': return 'C';
+        }
+    }
 
     // ボタン活性
     const myTurn = state.currentTurn === App.playerName;

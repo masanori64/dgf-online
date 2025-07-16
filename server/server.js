@@ -29,6 +29,7 @@ function updateRoomActive(roomId) {
 }
 
 wss.on('connection', ws => {
+
   log('New client connected');
 
   ws.on('message', msg => {
@@ -37,17 +38,37 @@ wss.on('connection', ws => {
       data = JSON.parse(msg);
     } catch (e) {
       log('JSON parse error:', msg);
+      ws.send(JSON.stringify({ type: 'error', message: '不正なJSON形式です' }));
+      return;
+    }
+    // 入力値バリデーション
+    if (!data || typeof data !== 'object') {
+      log('Invalid message object:', data);
+      ws.send(JSON.stringify({ type: 'error', message: '不正なデータ形式' }));
       return;
     }
     const { type, room: roomId, name } = data;
     log('Received message', { type, roomId, name });
 
+    // type必須チェック
+    if (!type || typeof type !== 'string') {
+      log('Missing or invalid type field:', type);
+      ws.send(JSON.stringify({ type: 'error', message: 'typeフィールドが不正です' }));
+      return;
+    }
+
     // --- 入室 ---
     if (type === 'join') {
       log(`Join request to room=${roomId}, name=${name}`);
-      if (!roomId || !name) {
-        ws.send(JSON.stringify({ type: 'error', message: '名前またはルームID未指定' }));
-        log(`Join error: missing parameters`);
+      // ルームID・名前のバリデーション
+      if (!roomId || typeof roomId !== 'string' || roomId.length > 32 || !/^[a-zA-Z0-9_-]+$/.test(roomId)) {
+        ws.send(JSON.stringify({ type: 'error', message: 'ルームIDが不正です' }));
+        log(`Join error: invalid roomId`, roomId);
+        return;
+      }
+      if (!name || typeof name !== 'string' || name.length > 16 || !/^[^\s\x00-\x1F\x7F]+$/.test(name)) {
+        ws.send(JSON.stringify({ type: 'error', message: '名前が不正です' }));
+        log(`Join error: invalid name`, name);
         return;
       }
       // 名前重複チェック（他ルーム含む）
@@ -82,7 +103,7 @@ wss.on('connection', ws => {
       // 切断済みゴーストの再接続（手札などの状態を維持）
       const ghost = room.players.find(p => p.name === name && !p.connected);
       if (ghost) {
-        console.log(`[Room:${roomId}] ゴースト名（${name}）を復活`);
+        log(`[Room:${roomId}] ゴースト名（${name}）を復活`);
         ghost.conn = ws;
         ghost.connected = true;
         ws.roomId = roomId;
@@ -111,58 +132,82 @@ wss.on('connection', ws => {
     const room = rooms[ws.roomId];
     if (!room) {
       log(`No such room: ${ws.roomId}`);
+      ws.send(JSON.stringify({ type: 'error', message: 'ルームが存在しません' }));
       return;
     }
 
     // --- ゲーム操作 ---
-    switch (type) {
-      case 'start':
-        if (ws.playerName === room.players[0]?.name && !room.started) {
-          log(`Start game in room ${room.roomId} by ${ws.playerName}`);
-          room.startGame();
+    try {
+      switch (type) {
+        case 'start':
+          if (ws.playerName === room.players[0]?.name && !room.started) {
+            log(`Start game in room ${room.roomId} by ${ws.playerName}`);
+            room.startGame();
+            updateRoomActive(room.roomId);
+          } else {
+            log('Start game rejected: not host or already started');
+          }
+          break;
+
+        case 'reset':
+          if (ws.playerName === room.players[0]?.name && !room.started) {
+            log(`Reset game in room ${room.roomId} by ${ws.playerName}`);
+            room.startGame();
+            updateRoomActive(room.roomId);
+          } else {
+            log('Reset game rejected: not host or already started');
+          }
+          break;
+
+        case 'play':
+          log(`Play received in room ${room.roomId} by ${ws.playerName}`, data.cards);
+          // カードデータのバリデーション
+          if (!Array.isArray(data.cards) || data.cards.length === 0 || data.cards.length > 5) {
+            ws.send(JSON.stringify({ type: 'error', message: 'カードデータが不正です' }));
+            log('Play error: invalid cards', data.cards);
+            return;
+          }
+          room.handlePlay(ws.playerName, data.cards);
           updateRoomActive(room.roomId);
-        }
-        break;
+          break;
 
-      case 'reset':
-        if (ws.playerName === room.players[0]?.name && !room.started) {
-          log(`Reset game in room ${room.roomId} by ${ws.playerName}`);
-          room.startGame();
+        case 'pass':
+          log(`Pass received in room ${room.roomId} by ${ws.playerName}`);
+          room.handlePass(ws.playerName);
           updateRoomActive(room.roomId);
-        }
-        break;
+          break;
 
-      case 'play':
-        log(`Play received in room ${room.roomId} by ${ws.playerName}`, data.cards);
-        room.handlePlay(ws.playerName, data.cards);
-        updateRoomActive(room.roomId);
-        break;
+        case 'dissolve':
+          // ホストが解散をリクエスト
+          if (room.players[0]?.name === ws.playerName) {
+            log(`Dissolve room ${room.roomId} by host ${ws.playerName}`);
+            // 解散フラグを立て、退出カウントを初期化
+            room.deletedFlag = true;
+            room.initialCount = room.players.length;
+            room.exitCount = 0;
+            // 参加者へ通知のみ（切断は参加者操作 or oncloseで）
+            room.players.forEach(p => {
+              if (p.conn && p.connected) {
+                try {
+                  p.conn.send(JSON.stringify({ type: 'room-deleted' }));
+                } catch (e) {
+                  log('Error sending room-deleted:', e);
+                }
+              }
+            });
+            log(`Room ${room.roomId} marked deleted (waiting for ${room.initialCount} exits)`);
+          } else {
+            log('Dissolve rejected: not host');
+          }
+          break;
 
-      case 'pass':
-        log(`Pass received in room ${room.roomId} by ${ws.playerName}`);
-        room.handlePass(ws.playerName);
-        updateRoomActive(room.roomId);
-        break;
-
-      case 'dissolve':
-        // ホストが解散をリクエスト
-        if (room.players[0]?.name === ws.playerName) {
-          log(`Dissolve room ${room.roomId} by host ${ws.playerName}`);
-          // 解散フラグを立て、退出カウントを初期化
-          room.deletedFlag = true;
-          room.initialCount = room.players.length;
-          room.exitCount = 0;
-          // 参加者へ通知のみ（切断は参加者操作 or oncloseで）
-          room.players.forEach(p => {
-            if (p.conn && p.connected) {
-              try {
-                p.conn.send(JSON.stringify({ type: 'room-deleted' }));
-              } catch { }
-            }
-          });
-          log(`Room ${room.roomId} marked deleted (waiting for ${room.initialCount} exits)`);
-        }
-        break;
+        default:
+          log('Unknown message type:', type);
+          ws.send(JSON.stringify({ type: 'error', message: '不明な操作です' }));
+      }
+    } catch (e) {
+      log('Exception in message handler:', e);
+      ws.send(JSON.stringify({ type: 'error', message: 'サーバー内部エラー' }));
     }
   });
 

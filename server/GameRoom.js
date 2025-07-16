@@ -70,9 +70,14 @@ class GameRoom {
     }
 
     addPlayer(name, conn) {
-        if (!name || typeof name !== "string" || !conn) {
-            log(this.roomId, 'addPlayer failed: invalid arguments');
-            return { ok: false, error: "不正な参加" };
+        // name: 16文字以内・制御文字/空白禁止, conn: WebSocket必須
+        if (!name || typeof name !== "string" || name.length > 16 || !/^[^\s\x00-\x1F\x7F]+$/.test(name)) {
+            log(this.roomId, 'addPlayer failed: invalid name', name);
+            return { ok: false, error: "名前が不正です" };
+        }
+        if (!conn) {
+            log(this.roomId, 'addPlayer failed: missing conn');
+            return { ok: false, error: "接続が不正です" };
         }
         if (this.getPlayer(name)) {
             log(this.roomId, 'addPlayer failed: name exists', name);
@@ -143,82 +148,106 @@ class GameRoom {
 
     handlePlay(playerName, dataCards) {
         log(this.roomId, 'handlePlay start', playerName, dataCards);
-        if (!this.started || this.isGameOver()) return;
-        const pl = this.getPlayer(playerName);
-        if (!pl || pl.finished || this.players[this.currentTurn].name !== playerName) {
-            log(this.roomId, 'handlePlay aborted: invalid turn or player');
-            return;
-        }
-        if (this.passedThisTurn.includes(playerName) || !this.isPlayable(pl.hand, dataCards)) {
-            log(this.roomId, 'handlePlay aborted: not playable');
-            return;
-        }
-        // カードを手札から削除
-        for (const d of dataCards) {
-            const idx = pl.hand.findIndex(c => c.suit === d.suit && c.rank === d.rank);
-            if (idx !== -1) pl.hand.splice(idx, 1);
-        }
-        this.lastPlayed = dataCards.map(c => new Card(c.suit, c.rank));
-        this.lastPlayedCount = dataCards.length;
-        this.lastPlayedRank = dataCards[0].rank;
-        this.lastPlayerIndex = this.currentTurn;
-        this.passCount = 0;
-        this.passedThisTurn = [];
-        log(this.roomId, `${playerName} played`, this.lastPlayed.map(c => c.toString()));
-        log(this.roomId, 'remaining hand count', pl.hand.length);
+        try {
+            if (!this.started || this.isGameOver()) {
+                log(this.roomId, 'handlePlay aborted: not started or game over');
+                return;
+            }
+            const pl = this.getPlayer(playerName);
+            if (!pl || pl.finished || this.players[this.currentTurn].name !== playerName) {
+                log(this.roomId, 'handlePlay aborted: invalid turn or player');
+                return;
+            }
+            if (!Array.isArray(dataCards) || dataCards.length === 0 || dataCards.length > 5) {
+                log(this.roomId, 'handlePlay aborted: invalid cards', dataCards);
+                return;
+            }
+            if (this.passedThisTurn.includes(playerName) || !this.isPlayable(pl.hand, dataCards)) {
+                log(this.roomId, 'handlePlay aborted: not playable');
+                return;
+            }
+            // カードを手札から削除
+            for (const d of dataCards) {
+                const idx = pl.hand.findIndex(c => c.suit === d.suit && c.rank === d.rank);
+                if (idx !== -1) pl.hand.splice(idx, 1);
+            }
+            this.lastPlayed = dataCards.map(c => new Card(c.suit, c.rank));
+            this.lastPlayedCount = dataCards.length;
+            this.lastPlayedRank = dataCards[0].rank;
+            this.lastPlayerIndex = this.currentTurn;
+            this.passCount = 0;
+            this.passedThisTurn = [];
+            log(this.roomId, `${playerName} played`, this.lastPlayed.map(c => c.toString()));
+            log(this.roomId, 'remaining hand count', pl.hand.length);
 
-        if (pl.hand.length === 0 && !pl.finished) {
-            pl.finished = true;
-            pl.rank = this.rankings.length + 1;
-            this.rankings.push(pl);
-            log(this.roomId, `${playerName} finished with rank ${pl.rank}`);
-        }
+            if (pl.hand.length === 0 && !pl.finished) {
+                pl.finished = true;
+                pl.rank = this.rankings.length + 1;
+                this.rankings.push(pl);
+                log(this.roomId, `${playerName} finished with rank ${pl.rank}`);
+            }
 
-        if (this.isGameOver()) {
-            this.finishGame();
-        } else {
-            this.currentTurn = this.getNextAlive(this.currentTurn);
-            log(this.roomId, 'next turn', this.players[this.currentTurn]?.name);
-            this.broadcastState();
+            if (this.isGameOver()) {
+                this.finishGame();
+            } else {
+                this.currentTurn = this.getNextAlive(this.currentTurn);
+                log(this.roomId, 'next turn', this.players[this.currentTurn]?.name);
+                this.broadcastState();
+            }
+        } catch (e) {
+            log(this.roomId, 'Exception in handlePlay:', e);
         }
     }
 
     handlePass(playerName) {
         log(this.roomId, 'handlePass', playerName);
-        if (!this.started || this.isGameOver()) return;
-        const pl = this.getPlayer(playerName);
-        if (!pl || pl.finished || this.players[this.currentTurn].name !== playerName) return;
-        if (this.lastPlayed.length === 0 || this.passedThisTurn.includes(playerName)) return;
-
-        this.passedThisTurn.push(playerName);
-        this.passCount++;
-        log(this.roomId, `${playerName} passed`);
-
-        const aliveCount = this.players.filter(p => !p.finished && p.connected && !this.passedThisTurn.includes(p.name)).length;
-        const needed = this.players.filter(p => !p.finished && p.connected).length - 1;
-        if (aliveCount === 0 || this.passCount >= needed) {
-            // 場流し
-            log(this.roomId, 'field cleared');
-            this.lastPlayed = [];
-            this.lastPlayedCount = 0;
-            this.lastPlayedRank = null;
-            this.passCount = 0;
-            this.passedThisTurn = [];
-            let nextIdx = this.lastPlayerIndex ?? this.currentTurn;
-            if (this.players[nextIdx].finished || !this.players[nextIdx].connected) {
-                nextIdx = this.getNextAlive(nextIdx);
+        try {
+            if (!this.started || this.isGameOver()) {
+                log(this.roomId, 'handlePass aborted: not started or game over');
+                return;
             }
-            this.currentTurn = nextIdx;
-            log(this.roomId, 'next turn after clear', this.players[this.currentTurn]?.name);
-        } else {
-            this.currentTurn = this.getNextAlive(this.currentTurn);
-            log(this.roomId, 'next turn after pass', this.players[this.currentTurn]?.name);
-        }
+            const pl = this.getPlayer(playerName);
+            if (!pl || pl.finished || this.players[this.currentTurn].name !== playerName) {
+                log(this.roomId, 'handlePass aborted: invalid turn or player');
+                return;
+            }
+            if (this.lastPlayed.length === 0 || this.passedThisTurn.includes(playerName)) {
+                log(this.roomId, 'handlePass aborted: already passed or no field');
+                return;
+            }
 
-        if (this.isGameOver()) {
-            this.finishGame();
-        } else {
-            this.broadcastState();
+            this.passedThisTurn.push(playerName);
+            this.passCount++;
+            log(this.roomId, `${playerName} passed`);
+
+            const aliveCount = this.players.filter(p => !p.finished && p.connected && !this.passedThisTurn.includes(p.name)).length;
+            const needed = this.players.filter(p => !p.finished && p.connected).length - 1;
+            if (aliveCount === 0 || this.passCount >= needed) {
+                // 場流し
+                log(this.roomId, 'field cleared');
+                this.lastPlayed = [];
+                this.lastPlayedCount = 0;
+                this.lastPlayedRank = null;
+                this.passCount = 0;
+                this.passedThisTurn = [];
+                let nextIdx = this.lastPlayerIndex ?? this.currentTurn;
+                if (this.players[nextIdx].finished || !this.players[nextIdx].connected) {
+                    nextIdx = this.getNextAlive(nextIdx);
+                }
+                this.currentTurn = nextIdx;
+                log(this.roomId, 'next turn after clear', this.players[this.currentTurn]?.name);
+            } else {
+                this.currentTurn = this.getNextAlive(this.currentTurn);
+                log(this.roomId, 'next turn after pass', this.players[this.currentTurn]?.name);
+            }
+
+            if (this.isGameOver()) {
+                this.finishGame();
+            } else {
+                this.broadcastState();
+            }
+        } catch (e) {
+            log(this.roomId, 'Exception in handlePass:', e);
         }
     }
 
@@ -264,10 +293,14 @@ class GameRoom {
     broadcastState() {
         this.players.forEach(p => {
             if (p.conn && p.connected) {
-                p.conn.send(JSON.stringify({
-                    ...this.buildState(),
-                    yourHand: p.hand.map(c => c.toString())
-                }));
+                try {
+                    p.conn.send(JSON.stringify({
+                        ...this.buildState(),
+                        yourHand: p.hand.map(c => c.toString())
+                    }));
+                } catch (e) {
+                    log(this.roomId, 'broadcastState send error:', e);
+                }
             }
         });
     }
