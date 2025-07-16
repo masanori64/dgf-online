@@ -346,10 +346,31 @@ function render(state) {
             + `</div>`;
     }).join('');
 
-    // 場
-    getEl('fieldCards').textContent = state.field.cards.length
-        ? `場: [${state.field.cards.join(', ')}]`
-        : '場: （なし）';
+  // 場
+const fc = getEl('fieldCards');
+fc.innerHTML = '';
+if (state.field.cards.length) {
+    state.field.cards.forEach(s => {
+        const m = s.match(/^([♣♦♥♠])([0-9JQKA]+)$/);
+        if (!m) return;
+
+        const suit = m[1];
+        const rank = m[2];
+        const code = suitToCode(suit) + rank;
+
+        const img = document.createElement('img');
+        img.className = 'fieldcard';  // CSSで別表示したい場合
+        img.src = `images/cards/${code}.png`;
+        img.alt = code;
+        img.dataset.suit = suit;
+        img.dataset.rank = rank;
+
+        fc.appendChild(img);
+    });
+} else {
+    fc.textContent = '場　なし';
+}
+
 
     // 手札
 const hc = getEl('handCards');

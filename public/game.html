@@ -8,9 +8,11 @@
 </head>
 <body>
      <!-- タイトル画像：白い枠の外に配置 -->
+<div id="titleScreen">
   <div class="title-wrapper">
     <img src="images/title.png" alt="大富豪オンライン" class="title-image" />
   </div>
+</div>
 
     <!-- JS処理完了まで隠すコンテナ -->
     <div id="app" style="visibility:hidden">
@@ -44,10 +46,23 @@
     </div>
     <script src="client.js"></script>
 
-<!-- 左右の装飾画像：初期は非表示 -->
-<img src="images/leftside.png" alt="左装飾" class="side-image left wait-deco" style="display: none;">
-<img src="images/rightside.png" alt="右装飾" class="side-image right wait-deco" style="display: none;">
+
+
+</html>
+
+<script>
+  document.getElementById("startBtn").addEventListener("click", function () {
+    // タイトル非表示
+    const title = document.getElementById("titleScreen");
+    if (title) title.style.display = "none";
+
+
+    // メインアプリ表示
+    document.getElementById("app").style.visibility = "visible";
+  });
+</script>
+
 
 </body>
 
-</html>
+
